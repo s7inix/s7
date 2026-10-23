@@ -380,17 +380,21 @@
       } catch (e) {}
     }
 
-        async function scanLoop() {
+    async function scanLoop() {
       if (!scanning) return;
       
       if (video.readyState >= 2 && !isProcessing) {
         try {
           let code = null;
           
-          // بنستخدم jsQR دايماً لأنه أدق في قراءة الكيو ار الملون واللي فيه تفاصيل
           if (video.videoWidth > 0) {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            // 🆕 تصغير حجم الصورة قبل القراءة عشان السرعة وعدم التهنيج
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
+            const scale = Math.min(800 / vw, 800 / vh, 1); // أقصى عرض 800 بكسل
+            
+            canvas.width = vw * scale;
+            canvas.height = vh * scale;
             
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -401,7 +405,6 @@
           }
 
           if (code) {
-            // 🆕 عشان نتأكد إحنا بنقرا إيه بالظبط
             console.log("QR Detected:", code); 
             handleScanSuccess(code.trim());
           }
