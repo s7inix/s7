@@ -1219,17 +1219,17 @@ if(studentForm){
         confirmButtonColor: '#0F2557',
         didOpen: () => {
           const qrDiv = document.getElementById('qr-container');
-          // توليد الكيو ار بمقاس كبير جداً (400x400) عشان الطباعة تبقى واضحة
+          
+          // توليد الكيو ار بـ CorrectLevel.L عشان المربعات تبقى كبيرة وسهلة القراءة
           new QRCode(qrDiv, {
             text: studentId,
-            width: 400,
-            height: 400,
-            colorDark: '#000000', // أسود صريح لأقصى تباين
+            width: 300,
+            height: 300,
+            colorDark: '#000000',
             colorLight: '#ffffff',
-            correctLevel: QRCode.CorrectLevel.M // تقليل الكثافة عشان القراءة تبقى أسهل
+            correctLevel: QRCode.CorrectLevel.L 
           });
           
-          // تصغير العرض في الشاشة فقط، لكن الملف الأصلي هيتحمل بحجم 400
           setTimeout(() => {
             const qrCanvas = qrDiv.querySelector('canvas');
             const qrImg = qrDiv.querySelector('img');
@@ -1238,8 +1238,18 @@ if(studentForm){
             if(qrCanvas) {
                qrCanvas.style.width = '200px';
                qrCanvas.style.height = '200px';
+               
+               // 🆕 إنشاء صورة بدقة عالية جداً (4x) عشان الطباعة تبقى واضحة جداً
                if(dlLink) {
-                   dlLink.href = qrCanvas.toDataURL("image/png");
+                   const highResCanvas = document.createElement('canvas');
+                   const scale = 4; // 4 أضعاف الدقة
+                   highResCanvas.width = qrCanvas.width * scale;
+                   highResCanvas.height = qrCanvas.height * scale;
+                   const ctx = highResCanvas.getContext('2d');
+                   ctx.imageSmoothingEnabled = false; // الحفاظ على حدة المربعات
+                   ctx.drawImage(qrCanvas, 0, 0, highResCanvas.width, highResCanvas.height);
+                   
+                   dlLink.href = highResCanvas.toDataURL("image/png");
                    dlLink.style.display = 'inline-block';
                }
             } else if(qrImg) {
