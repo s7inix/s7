@@ -2068,11 +2068,16 @@ function startClock(){
   stopClock();
   const tick = () => {
     const now = new Date();
-    const hh = String(now.getHours()).padStart(2,'0');
-    const mm = String(now.getMinutes()).padStart(2,'0');
-    const ss = String(now.getSeconds()).padStart(2,'0');
     const el = document.getElementById('monitorClock');
-    if(el) el.textContent = `${hh}:${mm}:${ss}`;
+    if(el) {
+      // 🆕 عرض الوقت بنظام 12 ساعة مع ص/م
+      el.textContent = now.toLocaleTimeString('ar-EG', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit', 
+        hour12: true 
+      });
+    }
   };
   tick();
   monitoringState.clockInterval = setInterval(tick, 1000);
@@ -2218,10 +2223,13 @@ function renderAttendanceList(){
     try{
       if(c.checkedInAt?.toDate){
         const d = c.checkedInAt.toDate();
-        const hh = String(d.getHours()).padStart(2,'0');
-        const mm = String(d.getMinutes()).padStart(2,'0');
-        const ss = String(d.getSeconds()).padStart(2,'0');
-        timeStr = `${hh}:${mm}:${ss}`;
+        // 🆕 عرض الوقت بنظام 12 ساعة
+        timeStr = d.toLocaleTimeString('ar-EG', { 
+          hour: '2-digit', 
+          minute: '2-digit', 
+          second: '2-digit', 
+          hour12: true 
+        });
       }
     }catch(_){}
     return `
