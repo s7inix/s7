@@ -1201,30 +1201,56 @@ if(studentForm){
         createdAt: serverTimestamp()
       });
 
-      // عرض QR في SweetAlert
+      // عرض QR في SweetAlert بدقة عالية جداً للطباعة
       await Swal.fire({
-        title: 'تم إنشاء الحساب',
+        title: 'تم إنشاء الحساب بنجاح',
         html: `
           <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:6px 0">
-            <div id="qr-container" style="padding:14px;background:#fff;border-radius:14px;border:2px solid #D6E4FF"></div>
+            <div id="qr-container" style="padding:14px;background:#fff;border-radius:14px;border:2px solid #D6E4FF; display:flex; justify-content:center; align-items:center;"></div>
             <div style="font-family:'Cairo',sans-serif;font-size:13px;color:#5A6B8C;text-align:center;line-height:1.8">
               <strong style="color:#0F2557;font-size:15px">${name}</strong><br>
               <span style="color:#3B82F6;font-weight:700">ID: ${studentId}</span><br>
               ${grade} — ${group}
             </div>
+            <a id="downloadQR" style="display:none; background:#3B82F6; color:#fff; padding:10px 20px; border-radius:10px; text-decoration:none; font-weight:bold; font-size:14px; margin-top:10px; font-family:'Cairo',sans-serif;" download="${studentId}.png">تحميل الكيو ار للطباعة 🖨️</a>
           </div>
         `,
         confirmButtonText: 'تم',
         confirmButtonColor: '#0F2557',
         didOpen: () => {
-          new QRCode(document.getElementById('qr-container'), {
+          const qrDiv = document.getElementById('qr-container');
+          // توليد الكيو ار بمقاس كبير جداً (400x400) عشان الطباعة تبقى واضحة
+          new QRCode(qrDiv, {
             text: studentId,
-            width: 180,
-            height: 180,
+            width: 400,
+            height: 400,
             colorDark: '#0F2557',
             colorLight: '#ffffff',
             correctLevel: QRCode.CorrectLevel.H
           });
+          
+          // تصغير العرض في الشاشة فقط، لكن الملف الأصلي هيتحمل بحجم 400
+          setTimeout(() => {
+            const qrCanvas = qrDiv.querySelector('canvas');
+            const qrImg = qrDiv.querySelector('img');
+            const dlLink = document.getElementById('downloadQR');
+            
+            if(qrCanvas) {
+               qrCanvas.style.width = '200px';
+               qrCanvas.style.height = '200px';
+               if(dlLink) {
+                   dlLink.href = qrCanvas.toDataURL("image/png");
+                   dlLink.style.display = 'inline-block';
+               }
+            } else if(qrImg) {
+               qrImg.style.width = '200px';
+               qrImg.style.height = '200px';
+               if(dlLink) {
+                   dlLink.href = qrImg.src;
+                   dlLink.style.display = 'inline-block';
+               }
+            }
+          }, 100);
         }
       });
 
