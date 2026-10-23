@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>S7INIX — قارئ الكيو ار</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<style>
+  :root{
+    --white:#ffffff; --bg-soft:#F5F8FF; --navy:#0F2557;
+    --blue:#3B82F6; --blue-light:#60A5FA; --text:#0B1B3B;
+    --text-soft:#5A6B8C; --border:#D6E4FF;
+    --success:#10B981; --danger:#EF4444; --warning:#F59E0B;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    font-family:'Cairo',sans-serif;
+    background:#000;
+    color:#fff;
+    overflow:hidden;
+    height:100vh;
+    width:100vw;
+  }
+
+  /* Camera Fullscreen */
+  #video-container {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    z-index: 1;
+  }
+  #qr-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  #qr-canvas {
+    display: none;
+  }
+
+  /* Header */
+  .cam-header{
+    position:absolute;
+    top:0;left:0;right:0;
+    padding:20px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    z-index:10;
+    background:linear-gradient(to bottom, rgba(15,37,87,0.9) 0%, transparent 100%);
+  }
+  .back-btn{
+    background:rgba(255,255,255,0.15);
+    border:1.5px solid rgba(255,255,255,0.3);
+    backdrop-filter:blur(10px);
+    color:#fff;
+    padding:10px 18px;
+    border-radius:12px;
+    font-family:inherit;
+    font-weight:700;
+    font-size:14px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    transition:all .2s ease;
+  }
+  .back-btn:hover{background:rgba(255,255,255,0.25)}
+  .cam-title{
+    font-weight:900;
+    font-size:18px;
+    color:#fff;
+    letter-spacing:1px;
+    text-shadow:0 2px 10px rgba(0,0,0,0.5);
+  }
+
+  /* Overlay & Scanner UI */
+  .scan-overlay{
+    position:absolute;
+    inset:0;
+    z-index:5;
+    pointer-events:none;
+  }
+  /* الليزر */
+  .scan-line{
+    position:absolute;
+    top:0;left:0;right:0;
+    height:3px;
+    background:linear-gradient(90deg, transparent, var(--blue-light), transparent);
+    box-shadow:0 0 20px var(--blue-light), 0 0 40px var(--blue-light);
+    animation:scanMove 2s linear infinite;
+  }
+  @keyframes scanMove{
+    0%{top:10%}
+    50%{top:90%}
+    100%{top:10%}
+  }
+
+  /* الزوايا الأربعة */
+  .corner {
+    position: absolute;
+    width: 50px; height: 50px;
+    border: 4px solid var(--blue-light);
+    z-index: 11;
+    pointer-events: none;
+    border-radius: 8px;
+    box-shadow: 0 0 15px rgba(96,165,250,0.5);
+  }
+  .corner-tl { top: 15%; right: 15%; border-left: none; border-bottom: none; border-top-right-radius: 16px; }
+  .corner-tr { top: 15%; left: 15%; border-right: none; border-bottom: none; border-top-left-radius: 16px; }
+  .corner-bl { bottom: 15%; right: 15%; border-left: none; border-top: none; border-bottom-right-radius: 16px; }
+  .corner-br { bottom: 15%; left: 15%; border-right: none; border-top: none; border-bottom-left-radius: 16px; }
+
+  /* Bottom Controls */
+  .controls{
+    position:absolute;
+    bottom:40px;
+    left:0;right:0;
+    display:flex;
+    justify-content:center;
+    gap:20px;
+    z-index:10;
+  }
+  .ctrl-btn{
+    background:rgba(15,37,87,0.6);
+    backdrop-filter:blur(10px);
+    border:1.5px solid rgba(255,255,255,0.3);
+    color:#fff;
+    width:60px;height:60px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    transition:all .2s ease;
+    box-shadow:0 8px 32px rgba(0,0,0,0.4);
+  }
+  .ctrl-btn:hover{background:var(--navy); transform:scale(1.05)}
+  .ctrl-btn:active{transform:scale(0.95)}
+  .ctrl-btn.active{background:var(--blue); border-color:var(--blue-light);}
+
+  /* Loading Screen */
+  .loading-screen{
+    position:absolute; inset:0;
+    background:var(--navy);
+    z-index:50;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:16px; color:#fff;
+    transition:opacity .4s ease;
+  }
+  .loading-screen.hidden{opacity:0; pointer-events:none;}
+  .spinner{
+    width:50px;height:50px;
+    border:4px solid rgba(255,255,255,0.1);
+    border-top-color:var(--blue-light);
+    border-radius:50%;
+    animation:spin 1s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* Swal Custom */
+  .swal2-popup { font-family: 'Cairo', sans-serif !important; border-radius: 20px !important; }
+</style>
+</head>
+<body>
+
+  <!-- Loading -->
+  <div class="loading-screen" id="loadingScreen">
+    <div class="spinner"></div>
+    <p class="font-bold text-lg">جاري تشغيل الكاميرا...</p>
+  </div>
+
+  <!-- Header -->
+  <div class="cam-header">
+    <button class="back-btn" onclick="window.location.href='index.html'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+      </svg>
+      رجوع
+    </button>
+    <div class="cam-title">S7INIX SCANNER</div>
+  </div>
+
+  <!-- Camera -->
+  <div id="video-container">
+    <video id="qr-video" autoplay muted playsinline style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(1);"></video>
+    <canvas id="qr-canvas"></canvas>
+  </div>
+
+  <!-- Scan Overlay -->
+  <div class="scan-overlay">
+    <div class="scan-line"></div>
+    <div class="corner corner-tl"></div>
+    <div class="corner corner-tr"></div>
+    <div class="corner corner-bl"></div>
+    <div class="corner corner-br"></div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button class="ctrl-btn" id="torchBtn" onclick="toggleTorch()" style="display:none;" title="الفلاش">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+    </button>
+    
+    <button class="ctrl-btn" id="switchBtn" onclick="switchCamera()" title="تبديل الكاميرا">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20.5 8h-3.2a2 2 0 0 0-1.6-.8H8.3a2 2 0 0 0-1.6.8H3.5A1.5 1.5 0 0 0 2 9.5v9A1.5 1.5 0 0 0 3.5 20h17A1.5 1.5 0 0 0 22 18.5v-9A1.5 1.5 0 0 0 20.5 8z"/>
+        <circle cx="12" cy="13" r="3.5"/>
+        <polyline points="6 8 4 6 6 4"/><polyline points="18 8 20 6 18 4"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Firebase & Logic -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
+    import { getFirestore, collection, query, where, getDocs, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAILrh8xiGYw5vh15ADAZLJxTf9vlG8X-I",
+      authDomain: "system-s777.firebaseapp.com",
+      projectId: "system-s777",
+      storageBucket: "system-s777.firebasestorage.app",
+      messagingSenderId: "524977205359",
+      appId: "1:524977205359:web:8c1dd728197dc30e079d9a"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    onAuthStateChanged(auth, (user) => {
+      if(!user) window.location.href = 'index.html';
+    });
+
+    /* ============ المتغيرات ============ */
+    const video = document.getElementById('qr-video');
+    const canvas = document.getElementById('qr-canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    
+    let stream = null;
+    let scanning = false;
+    let currentFacingMode = 'environment'; // الكاميرا الخلفية ديفولت
+    let isProcessing = false;
+    let barcodeDetector = null;
+
+    // Web Audio API للأصوات (أسرع وأنقى من الملفات)
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSound(type) {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      
+      const now = audioCtx.currentTime;
+      if (type === 'success') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, now); // A5
+        osc.frequency.setValueAtTime(1320, now + 0.1); // E6
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        osc.start(now); osc.stop(now + 0.3);
+      } else if (type === 'error') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.exponentialRampToValueAtTime(150, now + 0.3);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        osc.start(now); osc.stop(now + 0.3);
+      } else if (type === 'warning') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.setValueAtTime(440, now + 0.15);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.setValueAtTime(0.1, now + 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        osc.start(now); osc.stop(now + 0.3);
+      }
+    }
+
+    /* ============ تشغيل الكاميرا ============ */
+    async function startCamera() {
+      document.getElementById('loadingScreen').classList.remove('hidden');
+      
+      // 1. التحقق من الدعم
+      if ('BarcodeDetector' in window) {
+        try {
+          const formats = await BarcodeDetector.getSupportedFormats();
+          if (formats.includes('qr_code')) {
+            barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
+          }
+        } catch (e) { console.warn('Native detector fail', e); }
+      }
+
+      // 2. تشغيل الفيديو
+      try {
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        
+        const constraints = {
+          video: { 
+            facingMode: currentFacingMode, // شيلنا exact عشان ميعملش error على الأجهزة اللي مفيهاش كاميرا خلفية
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          }
+        };
+        
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = stream;
+        await video.play();
+        
+        // 3. إعدادات العرض
+        applyMirror();
+        checkTorch();
+        
+        document.getElementById('loadingScreen').classList.add('hidden');
+        
+        if (!scanning) {
+          scanning = true;
+          requestAnimationFrame(scanLoop);
+        }
+        
+      } catch (err) {
+        console.error(err);
+        // Fallback لو الكاميرا الخلفية مش موجودة (زي اللاب توب)
+        if (currentFacingMode === 'environment') {
+           currentFacingMode = 'user';
+           return startCamera();
+        }
+        
+        document.getElementById('loadingScreen').classList.add('hidden');
+        Swal.fire({ 
+          icon: 'error', title: 'فشل الكاميرا', 
+          text: 'تأكد من السماح بالوصول للكاميرا (لازم HTTPS أو localhost).',
+          confirmButtonColor: '#0F2557'
+        });
+      }
+    }
+
+    function applyMirror() {
+      // منع الانعكاس للكاميرا الخلفية، وعكس الأمامية فقط
+      if (currentFacingMode === 'user') {
+        video.style.transform = 'scaleX(-1)';
+      } else {
+        video.style.transform = 'scaleX(1)';
+      }
+    }
+
+    async function switchCamera() {
+      currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+      document.getElementById('switchBtn').classList.remove('active');
+      await startCamera();
+      document.getElementById('switchBtn').classList.add('active');
+    }
+
+    async function toggleTorch() {
+      if (!stream) return;
+      const track = stream.getVideoTracks()[0];
+      try {
+        const caps = track.getCapabilities();
+        if (caps.torch) {
+          const isTorchOn = document.getElementById('torchBtn').classList.contains('active');
+          await track.applyConstraints({ advanced: [{ torch: !isTorchOn }] });
+          document.getElementById('torchBtn').classList.toggle('active');
+        }
+      } catch (e) {}
+    }
+
+    function checkTorch() {
+      if (!stream) return;
+      const track = stream.getVideoTracks()[0];
+      try {
+        const caps = track.getCapabilities();
+        if (caps.torch) document.getElementById('torchBtn').style.display = 'flex';
+      } catch (e) {}
+    }
+
+    /* ============ حلقة القراءة ============ */
+    async function scanLoop() {
+      if (!scanning) return;
+      
+      if (video.readyState >= 2 && !isProcessing) {
+        try {
+          let code = null;
+          
+          // 1. تجربة الماسح المدمج
+          if (barcodeDetector) {
+            try {
+              const barcodes = await barcodeDetector.detect(video);
+              if (barcodes.length > 0) code = barcodes[0].rawValue;
+            } catch (err) {
+              // لو فشل الماسح المدمج، بنلغيه ونرجع لـ jsQR
+              barcodeDetector = null; 
+            }
+          }
+          
+          // 2. استخدام jsQR لو الماسح المدمج مش موجود
+          if (!code && video.videoWidth > 0) {
+            // بنصغر الصورة لـ 800 بكسل عشان القراءة تبقى فورية جداً
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
+            const scale = Math.min(800 / vw, 800 / vh, 1);
+            
+            canvas.width = vw * scale;
+            canvas.height = vh * scale;
+            
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // attemptBoth بتقرأ الكيو ار العادي والمعكوس
+            const qr = jsQR(imgData.data, canvas.width, canvas.height, { inversionAttempts: 'attemptBoth' });
+            if (qr) code = qr.data;
+          }
+
+          // 3. لو لقينا كود
+          if (code) {
+            handleScanSuccess(code.trim());
+          }
+        } catch (e) {
+          // تجاهل أخطاء الفريمات
+        }
+      }
+      requestAnimationFrame(scanLoop);
+    }
+
+    /* ============ منطق القراءة ============ */
+    async function handleScanSuccess(studentId) {
+      // 1. قفل الحماية (لمنع التكرار)
+      const lockKey = 'scan_lock_' + studentId;
+      const lastScan = localStorage.getItem(lockKey);
+      if (lastScan && (Date.now() - parseInt(lastScan)) < 3600000) {
+        return; // متجاهلناه لأنه اتقرأ في آخر ساعة
+      }
+      
+      isProcessing = true;
+      if (navigator.vibrate) navigator.vibrate(50);
+      playSound('warning');
+
+      try {
+        // 2. البحث في الفايربيز
+        const q = query(collection(db, 'students'), where('studentId', '==', studentId));
+        const snap = await getDocs(q);
+
+        if (snap.empty) {
+          playSound('error');
+          Swal.fire({
+            icon: 'error', title: 'كارت غير مسجل',
+            text: 'هذا الكارت غير موجود في قاعدة البيانات',
+            confirmButtonColor: '#EF4444'
+          }).then(() => { isProcessing = false; });
+          return;
+        }
+
+        const student = snap.docs[0].data();
+        const docId = snap.docs[0].id;
+
+        // 3. فحص الوقت
+        const timeCheck = checkTime(student.timeFrom, student.timeTo);
+
+        if (!timeCheck.isValid) {
+          playSound('error');
+          localStorage.setItem(lockKey, Date.now().toString()); // اقفله ساعة عشان ميزعجش
+
+          Swal.fire({
+            icon: 'warning',
+            title: 'تحذير: خارج المعاد',
+            html: `
+              <div style="text-align:center; font-family:'Cairo'">
+                <p style="font-size:20px; font-weight:bold; color:#0F2557; margin-bottom:8px">${student.name}</p>
+                <p style="font-size:14px; color:#5A6B8C; margin-bottom:12px">ميعاد الحصة: ${student.timeFrom} إلى ${student.timeTo}</p>
+                <p style="font-size:14px; color:#EF4444; font-weight:bold">${timeCheck.reason}</p>
+              </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'تأكيد (تجاوز)',
+            cancelButtonText: 'رفض',
+            confirmButtonColor: '#F59E0B',
+            cancelButtonColor: '#EF4444',
+            reverseButtons: true
+          }).then(async (res) => {
+            if (res.isConfirmed) {
+              await saveAttendance(student, docId, 'manual_override');
+            } else {
+              isProcessing = false;
+            }
+          });
+          return;
+        }
+
+        // 4. الوقت سليم
+        playSound('success');
+        Swal.fire({
+          icon: 'success',
+          title: 'تم قراءة الكارت',
+          html: `
+            <div style="text-align:center; font-family:'Cairo'">
+              <p style="font-size:22px; font-weight:bold; color:#0F2557; margin-bottom:8px">${student.name}</p>
+              <p style="font-size:14px; color:#5A6B8C">الصف: ${student.grade}</p>
+              <p style="font-size:14px; color:#5A6B8C">المجموعة: ${student.group}</p>
+            </div>
+          `,
+          showCancelButton: true,
+          confirmButtonText: 'تأكيد الحضور',
+          cancelButtonText: 'إلغاء',
+          confirmButtonColor: '#10B981',
+          cancelButtonColor: '#5A6B8C',
+          reverseButtons: true
+        }).then(async (res) => {
+          if (res.isConfirmed) {
+            await saveAttendance(student, docId, 'on_time');
+          } else {
+            isProcessing = false;
+          }
+        });
+
+      } catch (err) {
+        console.error(err);
+        playSound('error');
+        Swal.fire({ icon: 'error', title: 'خطأ', text: err.message }).then(() => { isProcessing = false; });
+      }
+    }
+
+    /* ============ حفظ الحضور ============ */
+    async function saveAttendance(student, docId, status) {
+      Swal.fire({ title: 'جاري الحفظ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const checkinId = `${student.studentId}_${today}`;
+
+        await setDoc(doc(db, 'checkins', checkinId), {
+          studentDocId: docId,
+          studentId: student.studentId,
+          name: student.name,
+          grade: student.grade,
+          group: student.group,
+          date: today,
+          checkedInAt: serverTimestamp(),
+          status: status
+        });
+
+        localStorage.setItem('scan_lock_' + student.studentId, Date.now().toString());
+        
+        playSound('success');
+        Swal.fire({
+          icon: 'success', title: 'تم تسجيل الحضور بنجاح',
+          text: student.name, timer: 2000, showConfirmButton: false
+        }).then(() => { isProcessing = false; });
+
+      } catch (err) {
+        playSound('error');
+        Swal.fire({ icon: 'error', title: 'فشل الحفظ', text: err.message }).then(() => { isProcessing = false; });
+      }
+    }
+
+    /* ============ فحص الوقت (سماحية 30 دقيقة) ============ */
+    function checkTime(from, to) {
+      const now = new Date();
+      const current = now.getHours() * 60 + now.getMinutes();
+      
+      const [fh, fm] = from.split(':').map(Number);
+      const [th, tm] = to.split(':').map(Number);
+      
+      const start = fh * 60 + fm;
+      const end = th * 60 + tm;
+      const grace = 30; // 30 دقيقة سماح
+
+      if (current < start - grace) {
+        return { isValid: false, reason: `حضر قبل المعاد بـ ${start - current} دقيقة` };
+      }
+      if (current > end + grace) {
+        return { isValid: false, reason: `متأخر عن المعاد بـ ${current - end} دقيقة` };
+      }
+      return { isValid: true };
+    }
+
+    // تشغيل تلقائي
+    window.addEventListener('load', startCamera);
+  </script>
+</body>
+</html>

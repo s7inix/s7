@@ -1,0 +1,1462 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>S7INIX — تسجيل طالب</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tsparticles-slim@2.12.0/tsparticles.slim.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tsparticles-slim@2.12.0/tsparticles.slim.bundle.min.js"></script><script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<style>
+
+  /* ===== Animated Angle (للإطار الدوار) ===== */
+  @property --angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+  }
+
+  @keyframes rotateAngle {
+    to { --angle: 360deg; }
+  }
+  :root{
+    --white:#ffffff;
+    --bg-soft:#F5F8FF;
+    --navy:#0F2557;
+    --blue:#3B82F6;
+    --blue-light:#60A5FA;
+    --text:#0B1B3B;
+    --text-soft:#5A6B8C;
+    --border:#D6E4FF;
+    --shadow:0 20px 60px rgba(15,37,87,.12);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    font-family:'Cairo',system-ui,-apple-system,sans-serif;
+    background:linear-gradient(135deg,#ffffff 0%,#EEF4FF 100%);
+    color:var(--text);
+    overflow:hidden;
+    position:relative;
+  }
+
+  #tsparticles{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+  /* ===== Back Button ===== */
+  .back-btn{
+    position:fixed;
+    top:20px;
+        left:20px;
+    z-index:20;
+    padding:10px 18px;
+    border-radius:12px;
+    border:1.5px solid var(--border);
+    background:rgba(255,255,255,.75);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    font-family:inherit;
+    font-weight:700;
+    font-size:13px;
+    color:var(--navy);
+    cursor:pointer;
+    transition:all .25s ease;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .back-btn:hover{
+    background:#fff;
+    border-color:var(--blue);
+    color:var(--blue);
+    transform:translateY(-1px);
+    box-shadow:0 8px 20px rgba(59,130,246,.2);
+  }
+    /* ===== Page Content ===== */
+  .page-content{
+    position:relative;
+    z-index:2;
+    width:100%;
+    max-width:720px;
+    margin:0 auto;
+    padding:100px 24px 40px;
+    height:100vh;
+    display:grid;
+    grid-template-rows:auto 1fr;
+    gap:20px;
+  }
+
+  /* ===== Tabs ===== */
+  .tabs{
+    display:flex;
+    background:rgba(255,255,255,.75);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:5px;
+    box-shadow:0 8px 24px rgba(15,37,87,.08);
+    flex-shrink:0;
+    position:relative;
+  }
+    /* ===== Liquid Glass Rotating Light (Tabs) ===== */
+  .tabs::before{
+    content:"";
+    position:absolute;
+    inset:-2px;
+    border-radius:16px;
+    padding:2px;
+    background:conic-gradient(
+      from var(--angle),
+      transparent 0deg,
+      transparent 300deg,
+      rgba(168,85,247,.7) 335deg,
+      rgba(192,132,252,1) 350deg,
+      rgba(168,85,247,.7) 358deg,
+      transparent 360deg
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite:exclude;
+    animation:rotateAngle 3s linear infinite;
+    pointer-events:none;
+    z-index:1;
+  }
+
+  .tabs::after{
+    content:"";
+    position:absolute;
+    inset:-3px;
+    border-radius:17px;
+    background:conic-gradient(
+      from var(--angle),
+      transparent 0deg,
+      transparent 300deg,
+      rgba(168,85,247,.4) 335deg,
+      rgba(192,132,252,.75) 350deg,
+      rgba(168,85,247,.4) 358deg,
+      transparent 360deg
+    );
+    filter:blur(6px);
+    animation:rotateAngle 3s linear infinite;
+    pointer-events:none;
+    z-index:-1;
+  }
+  .tab-btn{
+    flex:1;
+    border:none;
+    background:transparent;
+    padding:12px 0;
+    font-family:inherit;
+    font-weight:700;
+    font-size:14px;
+    color:var(--text-soft);
+    cursor:pointer;
+    border-radius:10px;
+    transition:all .3s ease;
+    position:relative;
+    z-index:1;
+  }
+  .tab-btn:hover:not(.active){color:var(--navy)}
+  .tab-btn.active{
+    color:#fff;
+    background:linear-gradient(135deg,var(--navy),var(--blue));
+    box-shadow:0 8px 20px rgba(59,130,246,.3);
+  }
+
+  /* ===== Tab Sections ===== */
+  .tab-section{
+    grid-row:2;
+    grid-column:1;
+    padding:8px;
+    opacity:0;
+    transform:translateY(12px);
+    visibility:hidden;
+    pointer-events:none;
+    overflow-y:auto;
+    border-radius:16px;
+    transition:opacity .35s ease, transform .35s ease, visibility 0s linear .35s;
+  }
+  .tab-section.active{
+    opacity:1;
+    transform:translateY(0);
+    visibility:visible;
+    pointer-events:auto;
+    transition:opacity .35s ease, transform .35s ease, visibility 0s linear 0s;
+  }
+  .tab-section::-webkit-scrollbar{width:6px}
+  .tab-section::-webkit-scrollbar-thumb{
+    background:var(--blue-light);
+    border-radius:10px;
+  }
+  
+    /* ===== Liquid Glass Rotating Light (Back Button) ===== */
+  .back-btn::before{
+    content:"";
+    position:absolute;
+    inset:-2px;
+    border-radius:14px;
+    padding:2px;
+    background:conic-gradient(
+      from var(--angle),
+      transparent 0deg,
+      transparent 300deg,
+      rgba(168,85,247,.7) 335deg,
+      rgba(192,132,252,1) 350deg,
+      rgba(168,85,247,.7) 358deg,
+      transparent 360deg
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite:exclude;
+    animation:rotateAngle 3s linear infinite;
+    pointer-events:none;
+    z-index:1;
+  }
+
+  .back-btn::after{
+    content:"";
+    position:absolute;
+    inset:-3px;
+    border-radius:15px;
+    background:conic-gradient(
+      from var(--angle),
+      transparent 0deg,
+      transparent 300deg,
+      rgba(168,85,247,.4) 335deg,
+      rgba(192,132,252,.75) 350deg,
+      rgba(168,85,247,.4) 358deg,
+      transparent 360deg
+    );
+    filter:blur(6px);
+    animation:rotateAngle 3s linear infinite;
+    pointer-events:none;
+    z-index:-1;
+  }
+
+  /* ===== Transition Overlay ===== */
+  .transition-overlay{
+    position:fixed;
+    inset:0;
+    z-index:9999;
+    background:linear-gradient(135deg,var(--navy) 0%,var(--blue) 100%);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    opacity:1;
+    pointer-events:auto;
+    transition:opacity .45s cubic-bezier(.4,0,.2,1);
+  }
+  .transition-overlay.active{
+    opacity:1;
+    pointer-events:auto;
+  }
+  .transition-overlay:not(.active){
+    opacity:0;
+    pointer-events:none;
+  }
+  .transition-logo{
+    width:80px;
+    height:80px;
+    border-radius:22px;
+    background:rgba(255,255,255,.15);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    border:1.5px solid rgba(255,255,255,.3);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:900;
+    font-size:28px;
+    letter-spacing:1px;
+    transform:scale(1);
+    opacity:1;
+    transition:transform .5s cubic-bezier(.2,.8,.2,1), opacity .4s ease;
+  }
+
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+  @media (max-width:480px){
+    .back-btn{top:14px;left:14px;padding:9px 14px;font-size:12px}
+  }
+  
+    /* ===== Student Form ===== */
+  .student-form{
+    background:rgba(255,255,255,.75);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:24px;
+    box-shadow:0 8px 24px rgba(15,37,87,.08);
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    position:relative;
+  }
+
+  /* ===== Liquid Glass Rotating Light (Student Form) ===== */
+  .student-form::before{
+    content:"";
+    position:absolute;
+    inset:-2px;
+    border-radius:18px;
+    padding:2px;
+    background:conic-gradient(
+      from var(--angle),
+      transparent 0deg,
+      transparent 300deg,
+      rgba(168,85,247,.7) 335deg,
+      rgba(192,132,252,1) 350deg,
+      rgba(168,85,247,.7) 358deg,
+      transparent 360deg
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite:exclude;
+    animation:rotateAngle 3s linear infinite;
+    pointer-events:none;
+    z-index:1;
+  }
+
+  .student-form::after{
+    content:"";
+    position:absolute;
+    inset:-3px;
+    border-radius:19px;
+    background:conic-gradient(
+      from var(--angle),
+      transparent 0deg,
+      transparent 300deg,
+      rgba(168,85,247,.4) 335deg,
+      rgba(192,132,252,.75) 350deg,
+      rgba(168,85,247,.4) 358deg,
+      transparent 360deg
+    );
+    filter:blur(6px);
+    animation:rotateAngle 3s linear infinite;
+    pointer-events:none;
+    z-index:-1;
+  }
+
+  .form-group{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .form-group label{
+    font-size:13px;
+    font-weight:700;
+    color:var(--navy);
+  }
+  .form-group input,
+  .form-group select{
+    width:100%;
+    padding:12px 14px;
+    border:1.5px solid var(--border);
+    border-radius:12px;
+    font-family:inherit;
+    font-size:14px;
+    color:var(--text);
+    background:#fff;
+    transition:border-color .25s ease, box-shadow .25s ease;
+    outline:none;
+  }
+  .form-group input:focus,
+  .form-group select:focus{
+    border-color:var(--blue);
+    box-shadow:0 0 0 4px rgba(59,130,246,.12);
+  }
+  .form-group input::placeholder{color:#A8B4CC}
+
+  .form-row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+  }
+
+  /* ===== Primary Button + Loading ===== */
+  .btn-primary{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:12px;
+    font-family:inherit;
+    font-weight:800;
+    font-size:15px;
+    color:#fff;
+    background:linear-gradient(135deg,var(--navy),var(--blue));
+    cursor:pointer;
+    margin-top:6px;
+    position:relative;
+    overflow:hidden;
+    transition:transform .2s ease, box-shadow .3s ease, opacity .2s ease;
+    box-shadow:0 10px 24px rgba(59,130,246,.32);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    min-height:50px;
+  }
+  .btn-primary:hover:not(:disabled){
+    transform:translateY(-2px);
+    box-shadow:0 14px 30px rgba(59,130,246,.42);
+  }
+  .btn-primary:active:not(:disabled){transform:translateY(0)}
+  .btn-primary:disabled{opacity:.75;cursor:not-allowed;transform:none}
+  .btn-primary .spinner{
+    width:18px;height:18px;
+    border:2.5px solid rgba(255,255,255,.35);
+    border-top-color:#fff;
+    border-radius:50%;
+    animation:spin .7s linear infinite;
+    display:none;
+  }
+  .btn-primary.loading .spinner{display:inline-block}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ===== Liquid Glass Rotating Light (Form Button) ===== */
+  .btn-primary::before{
+    content:"";
+    position:absolute;
+    inset:-2px;
+    border-radius:14px;
+    padding:2px;
+    background:conic-gradient(
+      from var(--angle),
+      transparent 0deg,
+      transparent 300deg,
+      rgba(168,85,247,.7) 335deg,
+      rgba(192,132,252,1) 350deg,
+      rgba(168,85,247,.7) 358deg,
+      transparent 360deg
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite:exclude;
+    animation:rotateAngle 3s linear infinite;
+    pointer-events:none;
+    z-index:1;
+  }
+  .btn-primary::after{
+    content:"";
+    position:absolute;
+    inset:-3px;
+    border-radius:15px;
+    background:conic-gradient(
+      from var(--angle),
+      transparent 0deg,
+      transparent 300deg,
+      rgba(168,85,247,.4) 335deg,
+      rgba(192,132,252,.75) 350deg,
+      rgba(168,85,247,.4) 358deg,
+      transparent 360deg
+    );
+    filter:blur(6px);
+    animation:rotateAngle 3s linear infinite;
+    pointer-events:none;
+    z-index:-1;
+  }
+
+  @media (max-width:480px){
+    .form-row{grid-template-columns:1fr}
+    .student-form{padding:18px}
+  }
+    /* ==================== ACCOUNTS TAB ==================== */
+  #section-accounts{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  /* --- Group Filter --- */
+  .group-filter{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    flex-shrink:0;
+  }
+  .group-btn{
+    position:relative;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:14px;
+    border:1.5px solid var(--border);
+    border-radius:14px;
+    background:rgba(255,255,255,.75);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    cursor:pointer;
+    text-align:right;
+    font-family:inherit;
+    transition:transform .2s ease, border-color .2s ease, box-shadow .3s ease;
+  }
+  .group-btn:hover{transform:translateY(-2px);border-color:var(--blue)}
+  .group-btn.active{
+    border-color:var(--blue);
+    background:linear-gradient(135deg,rgba(15,37,87,.04),rgba(59,130,246,.10));
+    box-shadow:0 8px 24px rgba(59,130,246,.18);
+  }
+  .group-icon{
+    width:44px;height:44px;
+    border-radius:12px;
+    background:linear-gradient(135deg,var(--navy),var(--blue));
+    color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+    transition:box-shadow .3s ease;
+  }
+  .group-btn.active .group-icon{box-shadow:0 8px 20px rgba(59,130,246,.4)}
+  .group-info{display:flex;flex-direction:column;gap:3px;min-width:0}
+  .group-title{font-weight:700;font-size:13px;color:var(--navy);line-height:1.3}
+  .group-count{font-size:12px;color:var(--text-soft);font-weight:600}
+  .group-count b{color:var(--blue);font-size:14px;font-weight:800}
+
+  /* Purple Glow — Group Buttons */
+  .group-btn::before{
+    content:"";position:absolute;inset:-2px;border-radius:16px;padding:2px;
+    background:conic-gradient(from var(--angle),
+      transparent 0deg, transparent 300deg,
+      rgba(168,85,247,.7) 335deg, rgba(192,132,252,1) 350deg,
+      rgba(168,85,247,.7) 358deg, transparent 360deg);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    mask-composite:exclude;
+    animation:rotateAngle 3s linear infinite;
+    pointer-events:none;z-index:1;
+  }
+  .group-btn::after{
+    content:"";position:absolute;inset:-3px;border-radius:17px;
+    background:conic-gradient(from var(--angle),
+      transparent 0deg, transparent 300deg,
+      rgba(168,85,247,.4) 335deg, rgba(192,132,252,.75) 350deg,
+      rgba(168,85,247,.4) 358deg, transparent 360deg);
+    filter:blur(6px);
+    animation:rotateAngle 3s linear infinite;
+    pointer-events:none;z-index:-1;
+  }
+
+  /* --- Search --- */
+  .search-wrap{
+    position:relative;
+    flex-shrink:0;
+    margin-bottom:4px;
+  }
+  .search-icon{
+    position:absolute;
+    top:50%;
+    right:14px;
+    transform:translateY(-50%);
+    color:var(--text-soft);
+    pointer-events:none;
+    z-index:2;
+  }
+  .search-wrap input{
+    width:100%;
+    padding:13px 46px 13px 16px;
+    border:1.5px solid var(--border);
+    border-radius:12px;
+    background:rgba(255,255,255,.85);
+    backdrop-filter:blur(10px);
+    font-family:inherit;
+    font-size:14px;
+    color:var(--text);
+    outline:none;
+    transition:border-color .2s ease, box-shadow .2s ease;
+  }
+  .search-wrap input:focus{
+    border-color:var(--blue);
+    box-shadow:0 0 0 4px rgba(59,130,246,.12);
+  }
+  .search-wrap input::placeholder{color:#A8B4CC}
+
+  /* --- Students Grid --- */
+  .students-grid{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:10px;
+    flex:1;
+    overflow-y:auto;
+    padding:6px 4px;
+    min-height:0;
+  }
+  .students-grid::-webkit-scrollbar{width:6px}
+  .students-grid::-webkit-scrollbar-thumb{background:var(--blue-light);border-radius:10px}
+  @media (min-width:500px){
+    .students-grid{grid-template-columns:1fr 1fr}
+  }
+
+  /* --- Student Card --- */
+  .student-card{
+    position:relative;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:14px;
+    border:1.5px solid var(--border);
+    border-radius:14px;
+    background:rgba(255,255,255,.85);
+    backdrop-filter:blur(10px);
+    cursor:pointer;
+    transition:transform .2s ease, border-color .2s ease, box-shadow .3s ease;
+  }
+  .student-card:hover{
+    transform:translateY(-2px);
+    border-color:var(--blue);
+    box-shadow:0 10px 24px rgba(59,130,246,.18);
+  }
+  .card-avatar{
+    width:44px;height:44px;
+    border-radius:12px;
+    background:linear-gradient(135deg,var(--navy),var(--blue));
+    color:#fff;
+    font-weight:900;
+    font-size:18px;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+  .card-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .card-name{
+    font-size:14px;font-weight:800;color:var(--navy);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .card-id{
+    font-size:11.5px;font-weight:700;color:var(--blue);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    font-family:monospace;
+  }
+  .card-grade{font-size:11.5px;color:var(--text-soft);font-weight:600}
+  .card-arrow{color:var(--text-soft);flex-shrink:0;transition:color .2s ease, transform .2s ease}
+  .student-card:hover .card-arrow{color:var(--blue);transform:translateX(-2px)}
+
+  /* Purple Glow — Cards (يشتغل عند الـ hover) */
+  .student-card::before{
+    content:"";position:absolute;inset:-2px;border-radius:16px;padding:2px;
+    background:conic-gradient(from var(--angle),
+      transparent 0deg, transparent 300deg,
+      rgba(168,85,247,.7) 335deg, rgba(192,132,252,1) 350deg,
+      rgba(168,85,247,.7) 358deg, transparent 360deg);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    mask-composite:exclude;
+    animation:rotateAngle 3s linear infinite;
+    animation-play-state:paused;
+    pointer-events:none;z-index:1;
+  }
+  .student-card::after{
+    content:"";position:absolute;inset:-3px;border-radius:17px;
+    background:conic-gradient(from var(--angle),
+      transparent 0deg, transparent 300deg,
+      rgba(168,85,247,.4) 335deg, rgba(192,132,252,.75) 350deg,
+      rgba(168,85,247,.4) 358deg, transparent 360deg);
+    filter:blur(6px);
+    animation:rotateAngle 3s linear infinite;
+    animation-play-state:paused;
+    pointer-events:none;z-index:-1;
+  }
+  .student-card:hover::before,
+  .student-card:hover::after{animation-play-state:running}
+
+  /* --- Empty State --- */
+  .empty-state{
+    grid-column:1 / -1;
+    display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    gap:12px;padding:40px 20px;
+    color:var(--text-soft);
+  }
+  .empty-state svg{opacity:.4}
+  .empty-state p{font-size:14px;font-weight:700}
+
+  /* ==================== STUDENT MODAL ==================== */
+  .student-modal{
+    position:fixed;inset:0;z-index:200;
+    display:none;
+  }
+  .student-modal.active{display:block}
+  .student-modal-overlay{
+    position:absolute;inset:0;
+    background:rgba(15,37,87,.45);
+    backdrop-filter:blur(6px);
+    -webkit-backdrop-filter:blur(6px);
+    animation:fadeIn .25s ease;
+  }
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+  .student-modal-panel{
+    position:absolute;
+    top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    width:92%;max-width:540px;
+    background:#fff;
+    border-radius:20px;
+    box-shadow:0 30px 80px rgba(15,37,87,.35);
+    animation:modalIn .35s cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes modalIn{
+    from{opacity:0;transform:translate(-50%,-50%) scale(.94)}
+    to{opacity:1;transform:translate(-50%,-50%) scale(1)}
+  }
+
+  /* Purple Glow — Modal Panel */
+  .student-modal-panel::before{
+    content:"";position:absolute;inset:-2px;border-radius:22px;padding:2px;
+    background:conic-gradient(from var(--angle),
+      transparent 0deg, transparent 300deg,
+      rgba(168,85,247,.75) 335deg, rgba(192,132,252,1) 350deg,
+      rgba(168,85,247,.75) 358deg, transparent 360deg);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    mask-composite:exclude;
+    animation:rotateAngle 3s linear infinite;
+    pointer-events:none;z-index:1;
+  }
+  .student-modal-panel::after{
+    content:"";position:absolute;inset:-4px;border-radius:24px;
+    background:conic-gradient(from var(--angle),
+      transparent 0deg, transparent 300deg,
+      rgba(168,85,247,.45) 335deg, rgba(192,132,252,.8) 350deg,
+      rgba(168,85,247,.45) 358deg, transparent 360deg);
+    filter:blur(10px);
+    animation:rotateAngle 3s linear infinite;
+    pointer-events:none;z-index:-1;
+  }
+
+  .modal-close{
+    position:absolute;
+    top:12px;left:12px;
+    z-index:5;
+    width:36px;height:36px;
+    border-radius:10px;
+    border:1.5px solid var(--border);
+    background:rgba(255,255,255,.95);
+    color:var(--navy);
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:all .2s ease;
+  }
+  .modal-close:hover{border-color:var(--blue);color:var(--blue);transform:rotate(90deg)}
+
+  .student-modal-inner{
+    max-height:88vh;
+    overflow-y:auto;
+    border-radius:20px;
+    padding:34px 26px 26px;
+  }
+  .student-modal-inner::-webkit-scrollbar{width:6px}
+  .student-modal-inner::-webkit-scrollbar-thumb{background:var(--blue-light);border-radius:10px}
+
+  .modal-header{
+    display:flex;flex-direction:column;gap:4px;
+    margin-bottom:16px;text-align:center;
+  }
+  .modal-title{
+    font-size:18px;font-weight:900;color:var(--navy);
+  }
+  .modal-id{
+    font-family:monospace;
+    font-size:12.5px;
+    color:var(--blue);
+    font-weight:700;
+    letter-spacing:.5px;
+  }
+
+  .modal-qr-wrap{
+    display:flex;flex-direction:column;
+    align-items:center;gap:8px;
+    margin-bottom:20px;
+    padding:16px;
+    background:var(--bg-soft);
+    border-radius:14px;
+    border:1px solid var(--border);
+  }
+  .modal-qr{
+    width:160px;height:160px;
+    padding:10px;
+    background:#fff;
+    border-radius:12px;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 18px rgba(15,37,87,.1);
+  }
+  .modal-qr img,
+  .modal-qr canvas{max-width:100%;height:auto;display:block}
+  .qr-hint{font-size:11.5px;color:var(--text-soft);font-weight:600}
+
+  .modal-form{display:flex;flex-direction:column;gap:14px}
+  .modal-form .form-group input:disabled,
+  .modal-form .form-group select:disabled{
+    background:var(--bg-soft);
+    color:var(--text-soft);
+    cursor:not-allowed;
+  }
+
+  @media (max-width:480px){
+    .group-filter{grid-template-columns:1fr}
+    .group-btn{padding:12px}
+    .group-icon{width:40px;height:40px}
+    .group-title{font-size:12.5px}
+    .student-modal-inner{padding:30px 18px 20px}
+    .modal-qr{width:140px;height:140px}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important;transition:none !important}
+  }
+  
+</style>
+</head>
+<body>
+
+<div id="tsparticles"></div>
+
+<!-- Back Button -->
+<button class="back-btn" id="backBtn" type="button">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="19" y1="12" x2="5" y2="12"/>
+    <polyline points="12 19 5 12 12 5"/>
+  </svg>
+  رجوع
+</button>
+
+<!-- محتوى الصفحة -->
+<main class="page-content">
+  <!-- تبويبات -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="create" type="button">إنشاء حساب</button>
+    <button class="tab-btn" data-tab="accounts" type="button">الحسابات المسجلة</button>
+  </div>
+
+  <!-- سيكشن إنشاء حساب -->
+  <section class="tab-section active" id="section-create">
+    <form id="studentForm" class="student-form" autocomplete="off">
+
+      <div class="form-group">
+        <label for="studentName">اسم الطالب</label>
+        <input type="text" id="studentName" placeholder="الاسم كامل" required minlength="3" />
+      </div>
+
+      <div class="form-group">
+        <label for="studentGrade">الصف الدراسي</label>
+        <select id="studentGrade" required>
+          <option value="" disabled selected>اختر الصف</option>
+          <option>الصف الأول الابتدائي</option>
+          <option>الصف الثاني الابتدائي</option>
+          <option>الصف الثالث الابتدائي</option>
+          <option>الصف الرابع الابتدائي</option>
+          <option>الصف الخامس الابتدائي</option>
+          <option>الصف السادس الابتدائي</option>
+          <option>الصف الأول الإعدادي</option>
+          <option>الصف الثاني الإعدادي</option>
+          <option>الصف الثالث الإعدادي</option>
+          <option>الصف الأول الثانوي</option>
+          <option>الصف الثاني الثانوي</option>
+          <option>الصف الثالث الثانوي</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="studentGroup">المجموعة</label>
+        <select id="studentGroup" required>
+  <option value="" disabled selected>اختر المجموعة</option>
+  <option>السبت - الاثنين - الأربع - الجمعة</option>
+  <option>الأحد - الثلاثاء - الخميس - الجمعة</option>
+</select>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="timeFrom">من الساعة</label>
+          <input type="time" id="timeFrom" required />
+        </div>
+        <div class="form-group">
+          <label for="timeTo">إلى الساعة</label>
+          <input type="time" id="timeTo" required />
+        </div>
+      </div>
+
+      <button type="submit" class="btn-primary" id="createStudentBtn">
+        <span class="spinner"></span>
+        <span class="btn-text">إنشاء الحساب</span>
+      </button>
+    </form>
+  </section>
+
+  <!-- سيكشن الحسابات المسجلة -->
+  <section class="tab-section" id="section-accounts">
+
+    <!-- فلتر المجموعات -->
+    <div class="group-filter">
+      <button class="group-btn active" data-group="g1" data-value="السبت - الاثنين - الأربع - الجمعة" type="button">
+        <div class="group-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <div class="group-info">
+          <span class="group-title">السبت - الاثنين - الأربع</span>
+          <span class="group-count"><b id="countG1">0</b> طالب</span>
+        </div>
+      </button>
+
+      <button class="group-btn" data-group="g2" data-value="الأحد - الثلاثاء - الخميس - الجمعة" type="button">
+        <div class="group-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </div>
+        <div class="group-info">
+          <span class="group-title">الأحد - الثلاثاء - الخميس</span>
+          <span class="group-count"><b id="countG2">0</b> طالب</span>
+        </div>
+      </button>
+    </div>
+
+    <!-- البحث -->
+    <div class="search-wrap">
+      <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" id="studentSearch" placeholder="ابحث بالاسم أو ID الطالب..." autocomplete="off" />
+    </div>
+
+    <!-- شبكة الطلاب -->
+    <div class="students-grid" id="studentsGrid">
+      <div class="empty-state">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+        </svg>
+        <p>لا يوجد طلاب في هذه المجموعة</p>
+      </div>
+    </div>
+  </section>
+</main>
+<!-- Modal: بيانات الطالب -->
+<div class="student-modal" id="studentModal">
+  <div class="student-modal-overlay" id="studentModalOverlay"></div>
+  <div class="student-modal-panel">
+    <button class="modal-close" id="modalClose" type="button" aria-label="إغلاق">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"/>
+        <line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+    <div class="student-modal-inner">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalTitle">بيانات الطالب</h2>
+        <span class="modal-id" id="modalId">—</span>
+      </div>
+
+      <div class="modal-qr-wrap">
+        <div class="modal-qr" id="modalQR"></div>
+        <p class="qr-hint">الـ QR ثابت ولا يمكن تعديله</p>
+      </div>
+
+      <form class="modal-form" id="editStudentForm">
+        <div class="form-group">
+          <label for="editName">اسم الطالب</label>
+          <input type="text" id="editName" required minlength="3" />
+        </div>
+        <div class="form-group">
+          <label for="editGrade">الصف الدراسي</label>
+          <select id="editGrade" required>
+            <option>الصف الأول الابتدائي</option>
+            <option>الصف الثاني الابتدائي</option>
+            <option>الصف الثالث الابتدائي</option>
+            <option>الصف الرابع الابتدائي</option>
+            <option>الصف الخامس الابتدائي</option>
+            <option>الصف السادس الابتدائي</option>
+            <option>الصف الأول الإعدادي</option>
+            <option>الصف الثاني الإعدادي</option>
+            <option>الصف الثالث الإعدادي</option>
+            <option>الصف الأول الثانوي</option>
+            <option>الصف الثاني الثانوي</option>
+            <option>الصف الثالث الثانوي</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="editGroup">المجموعة</label>
+          <select id="editGroup" required>
+  <option>السبت - الاثنين - الأربع - الجمعة</option>
+  <option>الأحد - الثلاثاء - الخميس - الجمعة</option>
+</select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="editTimeFrom">من الساعة</label>
+            <input type="time" id="editTimeFrom" required />
+          </div>
+          <div class="form-group">
+            <label for="editTimeTo">إلى الساعة</label>
+            <input type="time" id="editTimeTo" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>ID الطالب (ثابت)</label>
+          <input type="text" id="editId" disabled />
+        </div>
+        <div class="form-group">
+          <label>تاريخ التسجيل</label>
+          <input type="text" id="editCreatedAt" disabled />
+        </div>
+
+        <button type="submit" class="btn-primary" id="saveStudentBtn">
+          <span class="spinner"></span>
+          <span class="btn-text">حفظ التعديلات</span>
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+<!-- Transition Overlay (يبدأ ظاهر ويختفي بنعومة) -->
+<div class="transition-overlay active" id="transitionOverlay">
+  <div class="transition-logo">S7</div>
+</div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAILrh8xiGYw5vh15ADAZLJxTf9vlG8X-I",
+  authDomain: "system-s777.firebaseapp.com",
+  projectId: "system-s777",
+  storageBucket: "system-s777.firebasestorage.app",
+  messagingSenderId: "524977205359",
+  appId: "1:524977205359:web:8c1dd728197dc30e079d9a"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+/* ============ Auth Guard (لازم يكون مسجل دخول) ============ */
+onAuthStateChanged(auth, (user) => {
+  if(!user){
+    window.location.href = 'index.html';
+  }
+});
+</script>
+<script>
+/* ============ Page Transition Out ============ */
+function navigateWithTransition(url){
+  const overlay = document.getElementById('transitionOverlay');
+  overlay.classList.add('active');
+  overlay.querySelector('.transition-logo').style.animation = 'float 2s ease-in-out infinite';
+  setTimeout(() => { window.location.href = url; }, 450);
+}
+
+/* ============ Back Button ============ */
+document.getElementById('backBtn').addEventListener('click', () => {
+  navigateWithTransition('index.html');
+});
+/* ============ Tabs Switching ============ */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('active'));
+    const section = document.getElementById('section-' + target);
+    if(section) section.classList.add('active');
+  });
+});
+
+/* ============ Helpers ============ */
+function generateStudentId(){
+  const ts = Date.now().toString(36).toUpperCase();
+  const rnd = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `S7-${ts}-${rnd}`;
+}
+
+/* ============ Loading state ============ */
+function setLoading(btn, on){
+  if(on){ btn.classList.add('loading'); btn.disabled = true; }
+  else{ btn.classList.remove('loading'); btn.disabled = false; }
+}
+/* ============ Hide Overlay on Load ============ */
+window.addEventListener('load', () => {
+  const overlay = document.getElementById('transitionOverlay');
+  setTimeout(() => {
+    overlay.classList.remove('active');
+    overlay.classList.remove('active');
+    overlay.style.opacity = '0';
+    overlay.style.pointerEvents = 'none';
+  }, 300);
+});
+
+/* ============ tsParticles ============ */
+(async () => {
+  try{
+    await tsParticles.load('tsparticles', {
+      fullScreen: { enable: false },
+      fpsLimit: 60,
+      detectRetina: true,
+      particles: {
+        number: { value: 34, density: { enable: true, area: 900 } },
+        color: { value: ['#3B82F6', '#60A5FA', '#0F2557'] },
+        shape: { type: 'circle' },
+        opacity: { value: { min: 0.15, max: 0.45 } },
+        size: { value: { min: 1.5, max: 3.5 } },
+        links: {
+          enable: true,
+          distance: 140,
+          color: '#93C5FD',
+          opacity: 0.25,
+          width: 1
+        },
+        move: {
+          enable: true,
+          speed: 0.6,
+          direction: 'none',
+          random: true,
+          straight: false,
+          outModes: { default: 'out' }
+        }
+      },
+      interactivity: {
+        events: {
+          onHover: { enable: true, mode: 'grab' },
+          resize: true
+        },
+        modes: {
+          grab: { distance: 160, links: { opacity: 0.4 } }
+        }
+      }
+    });
+  }catch(e){ console.warn('particles failed', e); }
+})();
+/* ============ Student Form Submit ============ */
+const studentForm = document.getElementById('studentForm');
+if(studentForm){
+  studentForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const name   = document.getElementById('studentName').value.trim();
+    const grade  = document.getElementById('studentGrade').value;
+    const group  = document.getElementById('studentGroup').value;
+    const tFrom  = document.getElementById('timeFrom').value;
+    const tTo    = document.getElementById('timeTo').value;
+    const btn    = document.getElementById('createStudentBtn');
+
+    if(!name || !grade || !group || !tFrom || !tTo){
+      Swal.fire({ icon: 'warning', title: 'من فضلك اكمل كل البيانات', confirmButtonColor: '#0F2557' });
+      return;
+    }
+
+    setLoading(btn, true);
+
+    try{
+      // نستورد دوال Firebase ديناميكيًا (لأن الـ script العادي مش module)
+      const { getFirestore, doc, setDoc, serverTimestamp } =
+        await import("https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js");
+      const { getApp } = await import("https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js");
+
+      const db = getFirestore(getApp());
+      const studentId = generateStudentId();
+
+      // حفظ البيانات في Firestore
+      await setDoc(doc(db, 'students', studentId), {
+        studentId,
+        name,
+        grade,
+        group,
+        timeFrom: tFrom,
+        timeTo: tTo,
+        qrPayload: studentId,
+        active: true,
+        createdAt: serverTimestamp()
+      });
+
+      // عرض QR في SweetAlert
+      await Swal.fire({
+        title: 'تم إنشاء الحساب',
+        html: `
+          <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:6px 0">
+            <div id="qr-container" style="padding:14px;background:#fff;border-radius:14px;border:2px solid #D6E4FF"></div>
+            <div style="font-family:'Cairo',sans-serif;font-size:13px;color:#5A6B8C;text-align:center;line-height:1.8">
+              <strong style="color:#0F2557;font-size:15px">${name}</strong><br>
+              <span style="color:#3B82F6;font-weight:700">ID: ${studentId}</span><br>
+              ${grade} — ${group}
+            </div>
+          </div>
+        `,
+        confirmButtonText: 'تم',
+        confirmButtonColor: '#0F2557',
+        didOpen: () => {
+          new QRCode(document.getElementById('qr-container'), {
+            text: studentId,
+            width: 180,
+            height: 180,
+            colorDark: '#0F2557',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.H
+          });
+        }
+      });
+
+      // تصفير الفورم
+      studentForm.reset();
+    }catch(err){
+      console.error(err);
+      Swal.fire({
+        icon: 'error',
+        title: 'حدث خطأ',
+        text: err.message || 'تأكد من الاتصال بالإنترنت وحاول مرة أخرى',
+        confirmButtonColor: '#0F2557'
+      });
+    }finally{
+      setLoading(btn, false);
+    }
+  });
+}
+/* ==================== STUDENTS LIST ==================== */
+let __fsCache = null;
+let allStudents = [];
+let currentGroupValue = 'السبت - الاثنين - الأربع - الجمعة';
+let currentSearch = '';
+let currentStudentId = null;
+let studentsUnsub = null;
+
+async function getFS(){
+  if(__fsCache) return __fsCache;
+  const fs = await import("https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js");
+  const appMod = await import("https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js");
+  const db = fs.getFirestore(appMod.getApp());
+  __fsCache = { db, ...fs };
+  return __fsCache;
+}
+
+async function initStudentsListener(){
+  try{
+    const fs = await getFS();
+    if(studentsUnsub) studentsUnsub();
+    studentsUnsub = fs.onSnapshot(fs.collection(fs.db, 'students'), (snap) => {
+      allStudents = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+      updateGroupCounts();
+      renderStudents();
+    }, (err) => console.warn('students listener failed', err));
+  }catch(e){ console.warn('initStudentsListener failed', e); }
+}
+
+function updateGroupCounts(){
+  const g1 = allStudents.filter(s => s.group === 'السبت - الاثنين - الأربع - الجمعة').length;
+  const g2 = allStudents.filter(s => s.group === 'الأحد - الثلاثاء - الخميس - الجمعة').length;
+  const e1 = document.getElementById('countG1');
+  const e2 = document.getElementById('countG2');
+  if(e1) e1.textContent = g1;
+  if(e2) e2.textContent = g2;
+}
+
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderStudents(){
+  const grid = document.getElementById('studentsGrid');
+  if(!grid) return;
+
+  const q = currentSearch.trim().toLowerCase();
+  let list = allStudents.filter(s => s.group === currentGroupValue);
+  if(q){
+    list = list.filter(s =>
+      (s.name || '').toLowerCase().includes(q) ||
+      (s.studentId || '').toLowerCase().includes(q)
+    );
+  }
+  list.sort((a,b) => (a.name || '').localeCompare(b.name || '', 'ar'));
+
+  grid.innerHTML = '';
+
+  if(list.length === 0){
+    grid.innerHTML = `
+      <div class="empty-state">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+          <circle cx="9" cy="7" r="4"/>
+        </svg>
+        <p>${q ? 'لا توجد نتائج مطابقة' : 'لا يوجد طلاب في هذه المجموعة'}</p>
+      </div>`;
+    return;
+  }
+
+  list.forEach(s => {
+    const card = document.createElement('div');
+    card.className = 'student-card';
+    card.dataset.id = s._id;
+    card.innerHTML = `
+      <div class="card-avatar">${escapeHtml((s.name || '؟').charAt(0))}</div>
+      <div class="card-body">
+        <h3 class="card-name">${escapeHtml(s.name || '—')}</h3>
+        <p class="card-id">${escapeHtml(s.studentId || '—')}</p>
+        <p class="card-grade">${escapeHtml(s.grade || '—')}</p>
+      </div>
+      <svg class="card-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>`;
+    card.addEventListener('click', () => openStudentModal(s._id));
+    grid.appendChild(card);
+  });
+}
+
+/* ============ Group Filter ============ */
+document.querySelectorAll('.group-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.group-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentGroupValue = btn.dataset.value;
+    renderStudents();
+  });
+});
+
+/* ============ Search ============ */
+const searchInput = document.getElementById('studentSearch');
+if(searchInput){
+  searchInput.addEventListener('input', (e) => {
+    currentSearch = e.target.value;
+    renderStudents();
+  });
+}
+
+/* ============ Modal ============ */
+async function openStudentModal(docId){
+  const student = allStudents.find(s => s._id === docId);
+  if(!student) return;
+  currentStudentId = docId;
+
+  document.getElementById('modalTitle').textContent = student.name || 'بيانات الطالب';
+  document.getElementById('modalId').textContent = student.studentId || '—';
+  document.getElementById('editName').value = student.name || '';
+  document.getElementById('editGrade').value = student.grade || 'الصف الأول الابتدائي';
+  document.getElementById('editGroup').value = student.group || 'السبت - الاثنين - الأربع - الجمعة';
+  document.getElementById('editTimeFrom').value = student.timeFrom || '';
+  document.getElementById('editTimeTo').value = student.timeTo || '';
+  document.getElementById('editId').value = student.studentId || '';
+
+  let createdStr = '—';
+  try{
+    if(student.createdAt){
+      const d = student.createdAt.toDate ? student.createdAt.toDate() : new Date(student.createdAt);
+      createdStr = d.toLocaleString('ar-EG', {
+        year:'numeric', month:'long', day:'numeric',
+        hour:'2-digit', minute:'2-digit'
+      });
+    }
+  }catch(_){}
+  document.getElementById('editCreatedAt').value = createdStr;
+
+  const qrBox = document.getElementById('modalQR');
+  qrBox.innerHTML = '';
+  new QRCode(qrBox, {
+    text: student.studentId,
+    width: 160,
+    height: 160,
+    colorDark: '#0F2557',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  document.getElementById('studentModal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeStudentModal(){
+  document.getElementById('studentModal').classList.remove('active');
+  document.body.style.overflow = '';
+  currentStudentId = null;
+}
+
+const modalCloseBtn = document.getElementById('modalClose');
+const modalOverlay = document.getElementById('studentModalOverlay');
+if(modalCloseBtn) modalCloseBtn.addEventListener('click', closeStudentModal);
+if(modalOverlay) modalOverlay.addEventListener('click', closeStudentModal);
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape') closeStudentModal();
+});
+
+/* ============ Save Edits ============ */
+const editForm = document.getElementById('editStudentForm');
+if(editForm){
+  editForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if(!currentStudentId) return;
+
+    const btn = document.getElementById('saveStudentBtn');
+    const name = document.getElementById('editName').value.trim();
+    const grade = document.getElementById('editGrade').value;
+    const group = document.getElementById('editGroup').value;
+    const timeFrom = document.getElementById('editTimeFrom').value;
+    const timeTo = document.getElementById('editTimeTo').value;
+
+    if(!name || !grade || !group || !timeFrom || !timeTo){
+      Swal.fire({ icon:'warning', title:'أكمل كل البيانات', confirmButtonColor:'#0F2557' });
+      return;
+    }
+
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    try{
+      const fs = await getFS();
+      await fs.updateDoc(fs.doc(fs.db, 'students', currentStudentId), {
+        name, grade, group, timeFrom, timeTo,
+        updatedAt: fs.serverTimestamp()
+      });
+      Swal.fire({
+        icon:'success', title:'تم حفظ التعديلات',
+        timer:1500, showConfirmButton:false
+      });
+      closeStudentModal();
+    }catch(err){
+      console.error(err);
+      Swal.fire({
+        icon:'error', title:'فشل الحفظ',
+        text: err.message || 'حاول مرة أخرى',
+        confirmButtonColor:'#0F2557'
+      });
+    }finally{
+      btn.classList.remove('loading');
+      btn.disabled = false;
+    }
+  });
+}
+
+/* ============ Init Listener ============ */
+initStudentsListener();
+</script>
+
+</body>
+</html>
