@@ -295,15 +295,7 @@
     async function startCamera() {
       document.getElementById('loadingScreen').classList.remove('hidden');
       
-      // 1. التحقق من الدعم
-      if ('BarcodeDetector' in window) {
-        try {
-          const formats = await BarcodeDetector.getSupportedFormats();
-          if (formats.includes('qr_code')) {
-            barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
-          }
-        } catch (e) { console.warn('Native detector fail', e); }
-      }
+
 
       // 2. تشغيل الفيديو
       try {
@@ -388,45 +380,29 @@
       } catch (e) {}
     }
 
-    /* ============ حلقة القراءة ============ */
-    async function scanLoop() {
+        async function scanLoop() {
       if (!scanning) return;
       
       if (video.readyState >= 2 && !isProcessing) {
         try {
           let code = null;
           
-          // 1. تجربة الماسح المدمج
-          if (barcodeDetector) {
-            try {
-              const barcodes = await barcodeDetector.detect(video);
-              if (barcodes.length > 0) code = barcodes[0].rawValue;
-            } catch (err) {
-              // لو فشل الماسح المدمج، بنلغيه ونرجع لـ jsQR
-              barcodeDetector = null; 
-            }
-          }
-          
-          // 2. استخدام jsQR لو الماسح المدمج مش موجود
-          if (!code && video.videoWidth > 0) {
-            // بنصغر الصورة لـ 800 بكسل عشان القراءة تبقى فورية جداً
-            const vw = video.videoWidth;
-            const vh = video.videoHeight;
-            const scale = Math.min(800 / vw, 800 / vh, 1);
-            
-            canvas.width = vw * scale;
-            canvas.height = vh * scale;
+          // بنستخدم jsQR دايماً لأنه أدق في قراءة الكيو ار الملون واللي فيه تفاصيل
+          if (video.videoWidth > 0) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
             
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             
-            // attemptBoth بتقرأ الكيو ار العادي والمعكوس
+            // attemptBoth بتحاول تقرأ الكيو ار العادي والمعكوس
             const qr = jsQR(imgData.data, canvas.width, canvas.height, { inversionAttempts: 'attemptBoth' });
             if (qr) code = qr.data;
           }
 
-          // 3. لو لقينا كود
           if (code) {
+            // 🆕 عشان نتأكد إحنا بنقرا إيه بالظبط
+            console.log("QR Detected:", code); 
             handleScanSuccess(code.trim());
           }
         } catch (e) {
