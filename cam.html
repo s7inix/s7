@@ -517,7 +517,13 @@
       Swal.fire({ title: 'جاري الحفظ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
       try {
-        const today = new Date().toISOString().split('T')[0];
+        // 🆕 استخدام التاريخ المحلي بدلاً من UTC
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const today = `${year}-${month}-${day}`;
+        
         const checkinId = `${student.studentId}_${today}`;
 
         await setDoc(doc(db, 'checkins', checkinId), {
