@@ -342,8 +342,12 @@
     }
 
     function applyMirror() {
-      // إلغاء الانعكاس تماماً لجميع الكاميرات عشان تبان طبيعية
-      video.style.transform = 'scaleX(1)';
+      // عكس الكاميرا الأمامية بس، وسيب الخلفية طبيعية
+      if (currentFacingMode === 'user') {
+        video.style.transform = 'scaleX(-1)';
+      } else {
+        video.style.transform = 'scaleX(1)';
+      }
     }
 
     async function switchCamera() {
