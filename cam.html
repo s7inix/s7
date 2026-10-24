@@ -253,7 +253,7 @@
     let barcodeDetector = null;
 
     // Web Audio API للأصوات (أسرع وأنقى من الملفات)
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let audioCtx = null;
     function playSound(type) {
       if (!audioCtx) {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
