@@ -1714,17 +1714,37 @@ onAuthStateChanged(auth, async (user) => {
     dashboard.classList.add('visible');
     bootLoader.classList.add('hidden');
 
-    // 🆕 استرجاع المراقبة إن كانت محفوظة
-    const savedMonitoring = loadMonitoringState();
-    if(savedMonitoring && savedMonitoring.active){
+    // 🆕 تحديد اليوزر الحالي
+    currentUser = user;
+
+    // 🆕 قراءة حالة المراقبة من Firestore (المصدر الأساسي)
+    let remoteMonitoring = null;
+    try{
+      const adminSnap = await getDoc(doc(db, 'admins', user.uid));
+      if(adminSnap.exists()){
+        remoteMonitoring = adminSnap.data().monitoringState;
+      }
+    }catch(e){ console.warn('read monitoring state failed', e); }
+
+    if(remoteMonitoring && remoteMonitoring.active && remoteMonitoring.grade && remoteMonitoring.group){
       monitorStartWrap.classList.add('hidden');
+      monitorStartWrap.style.display = 'none';
       monitorPanel.classList.add('active');
-      restoreMonitoring(savedMonitoring);
+      restoreMonitoring(remoteMonitoring);
     } else {
       monitorStartWrap.classList.remove('hidden');
+      monitorStartWrap.style.display = '';
       monitorPanel.classList.remove('active');
     }
+
+    // 🆕 الاستماع للتغييرات اللحظية (لو جهاز تاني بدأ أو وقف)
+    subscribeMonitoringSync();
+
   }else{
+    // 🆕 تنظيف المراقبة عند تسجيل الخروج
+    currentUser = null;
+    if(monitoringSyncUnsub){ monitoringSyncUnsub(); monitoringSyncUnsub = null; }
+    
     closeSidebar();
     dashboard.classList.remove('visible');
     authScreen.classList.remove('hidden');
@@ -1809,6 +1829,8 @@ let monitoringState = {
   unsubscribeCheckins: null,
   clockInterval: null
 };
+let currentUser = null;
+let monitoringSyncUnsub = null;
 
 /* ============ Monitoring Persistence ============ */
 const MONITOR_STATE_KEY = 's7inix_monitoring_state_v1';
@@ -1836,6 +1858,61 @@ function loadMonitoringState(){
 
 function clearMonitoringState(){
   try{ localStorage.removeItem(MONITOR_STATE_KEY); }catch(e){}
+}
+/* ============ Monitoring Sync (Firestore) ============ */
+async function saveMonitoringStateToFirestore(){
+  if(!currentUser) return;
+  try{
+    await setDoc(doc(db, 'admins', currentUser.uid), {
+      monitoringState: {
+        active: true,
+        grade: monitoringState.grade,
+        group: monitoringState.group,
+        day: monitoringState.day,
+        date: monitoringState.date,
+        startedAt: serverTimestamp()
+      }
+    }, { merge: true });
+  }catch(e){ console.warn('saveMonitoringStateToFirestore failed', e); }
+}
+
+async function clearMonitoringStateFromFirestore(){
+  if(!currentUser) return;
+  try{
+    await setDoc(doc(db, 'admins', currentUser.uid), {
+      monitoringState: {
+        active: false,
+        grade: null,
+        group: null,
+        day: null,
+        date: null,
+        startedAt: null
+      }
+    }, { merge: true });
+  }catch(e){ console.warn('clearMonitoringStateFromFirestore failed', e); }
+}
+
+function subscribeMonitoringSync(){
+  if(!currentUser) return;
+  if(monitoringSyncUnsub){ monitoringSyncUnsub(); monitoringSyncUnsub = null; }
+
+  monitoringSyncUnsub = onSnapshot(doc(db, 'admins', currentUser.uid), (snap) => {
+    if(!snap.exists()) return;
+    const remote = snap.data().monitoringState;
+    if(!remote) return;
+
+    // 1. لو الريموت نشط، وإحنا مش نشطين → نسترجع
+    if(remote.active && !monitoringState.active && remote.grade && remote.group){
+      monitorStartWrap.classList.add('hidden');
+      monitorStartWrap.style.display = 'none';
+      monitorPanel.classList.add('active');
+      restoreMonitoring(remote);
+    }
+    // 2. لو الريموت متوقف، وإحنا نشطين → نوقف
+    else if(!remote.active && monitoringState.active){
+      stopMonitoring();
+    }
+  }, (err) => console.warn('monitoring sync error', err));
 }
 /* ---- Helpers ---- */
 function getTodayStr(){
@@ -2011,7 +2088,10 @@ startMonitorBtn.addEventListener('click', async () => {
         .filter(c => c.group === todayGroup && c.grade === selectedGrade);
       recalcCounters();
     }, (err) => console.warn('checkins listener error', err));
+    
+    // 🆕 حفظ في localStorage و Firestore
     saveMonitoringState();
+    await saveMonitoringStateToFirestore();
   }catch(err){
     console.error(err);
     Swal.fire({ icon:'error', title:'فشل بدء المراقبة', text:err.message, confirmButtonColor:'#0F2557' });
@@ -2120,6 +2200,7 @@ monitorExitBtn.addEventListener('click', async () => {
 function stopMonitoring(){
   monitoringState.active = false;
   clearMonitoringState();
+  clearMonitoringStateFromFirestore(); // 🆕
   stopClock();
   if(monitoringState.unsubscribeStudents){ monitoringState.unsubscribeStudents(); monitoringState.unsubscribeStudents = null; }
   if(monitoringState.unsubscribeCheckins){ monitoringState.unsubscribeCheckins(); monitoringState.unsubscribeCheckins = null; }
