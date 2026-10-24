@@ -294,44 +294,55 @@
     /* ============ تشغيل الكاميرا ============ */
     async function startCamera() {
       document.getElementById('loadingScreen').classList.remove('hidden');
-      
 
-
-      // 2. تشغيل الفيديو
       try {
         if (stream) stream.getTracks().forEach(t => t.stop());
-        
+
+        // إجبار المتصفح على الكاميرا الخلفية أولاً، ولو مش موجودة ينزل للـ catch ويفتح الأمامية
+        const facingConstraint = currentFacingMode === 'environment' 
+          ? { exact: 'environment' } 
+          : 'user';
+
         const constraints = {
           video: { 
-            facingMode: currentFacingMode,
+            facingMode: facingConstraint,
             width: { ideal: 1280 },
             height: { ideal: 720 }
           }
         };
-        
+
         stream = await navigator.mediaDevices.getUserMedia(constraints);
         video.srcObject = stream;
         await video.play();
-        
-        // 3. إعدادات العرض
+
+        // التأكد الفعلي من نوع الكاميرا اللي فتحت من الهاردوير نفسه
+        const track = stream.getVideoTracks()[0];
+        const settings = track.getSettings ? track.getSettings() : {};
+        if (settings.facingMode === 'environment') {
+          currentFacingMode = 'environment';
+        } else if (settings.facingMode === 'user') {
+          currentFacingMode = 'user';
+        }
+
+        // إعدادات العرض والفلاش
         applyMirror();
         checkTorch();
-        
+
         document.getElementById('loadingScreen').classList.add('hidden');
-        
+
         if (!scanning) {
           scanning = true;
           requestAnimationFrame(scanLoop);
         }
-        
+
       } catch (err) {
-        console.error(err);
-        // Fallback لو الكاميرا الخلفية مش موجودة (زي اللاب توب)
+        console.warn("Switching to user camera:", err);
+        // لو الكاميرا الخلفية مش موجودة (زي اللاب توب)، يقلب للأمامية فوراً ويعدل الاتجاه
         if (currentFacingMode === 'environment') {
-           currentFacingMode = 'user';
-           return startCamera();
+          currentFacingMode = 'user';
+          return startCamera();
         }
-        
+
         document.getElementById('loadingScreen').classList.add('hidden');
         Swal.fire({ 
           icon: 'error', title: 'فشل الكاميرا', 
@@ -342,7 +353,7 @@
     }
 
     function applyMirror() {
-      // عكس الكاميرا الأمامية بس، وسيب الخلفية طبيعية
+      // scaleX(-1) بتخلي الكاميرا الأمامية زي المراية الطبيعية (يمينك يمين وشمالك شمال)
       if (currentFacingMode === 'user') {
         video.style.transform = 'scaleX(-1)';
       } else {
@@ -351,17 +362,13 @@
     }
 
     async function switchCamera() {
-      // 1. إيقاف الكاميرا الحالية بالكامل
       if (stream) {
         stream.getTracks().forEach(t => t.stop());
         stream = null;
       }
       video.srcObject = null;
-      
-      // 2. تغيير اتجاه الكاميرا
+
       currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-      
-      // 3. تشغيل الكاميرا الجديدة
       await startCamera();
     }
 
@@ -369,7 +376,7 @@
       if (!stream) return;
       const track = stream.getVideoTracks()[0];
       try {
-        const caps = track.getCapabilities();
+        const caps = track.getCapabilities ? track.getCapabilities() : {};
         if (caps.torch) {
           const isTorchOn = document.getElementById('torchBtn').classList.contains('active');
           await track.applyConstraints({ advanced: [{ torch: !isTorchOn }] });
@@ -379,13 +386,20 @@
     }
 
     function checkTorch() {
+      const torchBtn = document.getElementById('torchBtn');
+      torchBtn.style.display = 'none';
+      torchBtn.classList.remove('active');
       if (!stream) return;
       const track = stream.getVideoTracks()[0];
       try {
-        const caps = track.getCapabilities();
-        if (caps.torch) document.getElementById('torchBtn').style.display = 'flex';
+        const caps = track.getCapabilities ? track.getCapabilities() : {};
+        if (caps.torch) torchBtn.style.display = 'flex';
       } catch (e) {}
     }
+
+    // ربط الدوال بـ window عشان زراير الـ HTML تشتغل جوه module
+    window.switchCamera = switchCamera;
+    window.toggleTorch = toggleTorch;
 
     async function scanLoop() {
       if (!scanning) return;
