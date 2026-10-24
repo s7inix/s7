@@ -305,8 +305,7 @@
           video: { 
             facingMode: currentFacingMode,
             width: { ideal: 1280 },
-            height: { ideal: 720 },
-            advanced: [{ focusMode: "continuous" }] // تفعيل التركيز التلقائي المستمر
+            height: { ideal: 720 }
           }
         };
         
@@ -343,19 +342,23 @@
     }
 
     function applyMirror() {
-      // منع الانعكاس للكاميرا الخلفية، وعكس الأمامية فقط
-      if (currentFacingMode === 'user') {
-        video.style.transform = 'scaleX(-1)';
-      } else {
-        video.style.transform = 'scaleX(1)';
-      }
+      // إلغاء الانعكاس تماماً لجميع الكاميرات عشان تبان طبيعية
+      video.style.transform = 'scaleX(1)';
     }
 
     async function switchCamera() {
+      // 1. إيقاف الكاميرا الحالية بالكامل
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+        stream = null;
+      }
+      video.srcObject = null;
+      
+      // 2. تغيير اتجاه الكاميرا
       currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-      document.getElementById('switchBtn').classList.remove('active');
+      
+      // 3. تشغيل الكاميرا الجديدة
       await startCamera();
-      document.getElementById('switchBtn').classList.add('active');
     }
 
     async function toggleTorch() {
