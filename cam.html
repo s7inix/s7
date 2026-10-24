@@ -420,10 +420,27 @@
       // 1. قفل الحماية (لمنع التكرار)
       const lockKey = 'scan_lock_' + studentId;
       const lastScan = localStorage.getItem(lockKey);
+      
       if (lastScan && (Date.now() - parseInt(lastScan)) < 3600000) {
-        return; // متجاهلناه لأنه اتقرأ في آخر ساعة
+        // 🆕 لو الكارت اتقرأ في آخر ساعة، نظهر إيرور بدل ما نسكت
+        isProcessing = true; // بنقفل المسح عشان الرسالة متطلعش 30 مرة في الثانية
+        playSound('error');
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]); // اهتزاز تحذيري
+        
+        Swal.fire({
+          icon: 'error',
+          title: 'تنبيه: الكارت مسجل بالفعل',
+          text: 'هذا الكارت تم مسحه وتسجيل الحضور له مسبقاً. السيستم شغال والكاميرا تقرأ بنجاح.',
+          confirmButtonText: 'حسناً',
+          confirmButtonColor: '#EF4444'
+        }).then(() => {
+          isProcessing = false; // بنفك القفل لما المستخدم يدوس حسناً عشان يقدر يمسح طالب جديد
+        });
+        
+        return;
       }
       
+      // باقي الكود بتاع التسجيل العادي (لو الكارت لسه ممسوحش)
       isProcessing = true;
       if (navigator.vibrate) navigator.vibrate(50);
       playSound('warning');
