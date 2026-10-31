@@ -222,7 +222,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
     import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
-    import { getFirestore, collection, query, where, getDocs, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+    import { getFirestore, collection, query, where, getDocs, doc, setDoc, serverTimestamp, onSnapshot } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAILrh8xiGYw5vh15ADAZLJxTf9vlG8X-I",
@@ -251,7 +251,7 @@
     let currentFacingMode = 'environment'; // الكاميرا الخلفية ديفولت
     let isProcessing = false;
     let barcodeDetector = null;
-
+    let allSessionsHistory = []; // 🆕 لتخزين السجل وحساب الغياب
     // Web Audio API للأصوات (أسرع وأنقى من الملفات)
     let audioCtx = null;
     function playSound(type) {
@@ -437,31 +437,26 @@
     }
 
     /* ============ منطق القراءة ============ */
-    async function handleScanSuccess(studentId) {
+        async function handleScanSuccess(studentId) {
       // 1. قفل الحماية (لمنع التكرار)
       const lockKey = 'scan_lock_' + studentId;
       const lastScan = localStorage.getItem(lockKey);
       
       if (lastScan && (Date.now() - parseInt(lastScan)) < 3600000) {
-        // 🆕 لو الكارت اتقرأ في آخر ساعة، نظهر إيرور بدل ما نسكت
-        isProcessing = true; // بنقفل المسح عشان الرسالة متطلعش 30 مرة في الثانية
+        isProcessing = true; 
         playSound('error');
-        if (navigator.vibrate) navigator.vibrate([100, 50, 100]); // اهتزاز تحذيري
+        if (navigator.vibrate) navigator.vibrate([100, 50, 100]); 
         
         Swal.fire({
           icon: 'error',
           title: 'تنبيه: الكارت مسجل بالفعل',
-          text: 'هذا الكارت تم مسحه وتسجيل الحضور له مسبقاً. السيستم شغال والكاميرا تقرأ بنجاح.',
+          text: 'هذا الكارت تم مسحه وتسجيل الحضور له مسبقاً.',
           confirmButtonText: 'حسناً',
           confirmButtonColor: '#EF4444'
-        }).then(() => {
-          isProcessing = false; // بنفك القفل لما المستخدم يدوس حسناً عشان يقدر يمسح طالب جديد
-        });
-        
+        }).then(() => { isProcessing = false; });
         return;
       }
       
-      // باقي الكود بتاع التسجيل العادي (لو الكارت لسه ممسوحش)
       isProcessing = true;
       if (navigator.vibrate) navigator.vibrate(50);
       playSound('warning');
@@ -489,7 +484,7 @@
 
         if (!timeCheck.isValid) {
           playSound('error');
-          localStorage.setItem(lockKey, Date.now().toString()); // اقفله ساعة عشان ميزعجش
+          localStorage.setItem(lockKey, Date.now().toString()); 
 
           Swal.fire({
             icon: 'warning',
@@ -517,31 +512,86 @@
           return;
         }
 
-        // 4. الوقت سليم
-        playSound('success');
-        Swal.fire({
-          icon: 'success',
-          title: 'تم قراءة الكارت',
-          html: `
-            <div style="text-align:center; font-family:'Cairo'">
-              <p style="font-size:22px; font-weight:bold; color:#0F2557; margin-bottom:8px">${student.name}</p>
-              <p style="font-size:14px; color:#5A6B8C">الصف: ${student.grade}</p>
-              <p style="font-size:14px; color:#5A6B8C">المجموعة: ${student.group}</p>
-            </div>
-          `,
-          showCancelButton: true,
-          confirmButtonText: 'تأكيد الحضور',
-          cancelButtonText: 'إلغاء',
-          confirmButtonColor: '#10B981',
-          cancelButtonColor: '#5A6B8C',
-          reverseButtons: true
-        }).then(async (res) => {
-          if (res.isConfirmed) {
-            await saveAttendance(student, docId, 'on_time');
-          } else {
-            isProcessing = false;
-          }
+        // 4. حساب الغياب والحضور السابق 🆕
+        let prevAbsences = 0;
+        let prevAttendances = 0;
+        
+        allSessionsHistory.forEach(session => {
+          if (session.absenceIds && session.absenceIds.includes(studentId)) prevAbsences++;
+          if (session.attendanceIds && session.attendanceIds.includes(studentId)) prevAttendances++;
         });
+
+        // 5. عرض التحذير بالحركة الصايعة
+        playSound('warning');
+        
+        // لو الطالب عنده غياب، نطلع تحذير، لو مفيش، نطلع رسالة تأكيد عادية
+        if (prevAbsences > 0) {
+          Swal.fire({
+            icon: 'warning',
+            title: 'تحذير: سجل غياب سابق!',
+            html: `
+              <div style="text-align:center; font-family:'Cairo'">
+                <div style="background:#FFF5F5; border:1.5px solid #FEB2B2; border-radius:14px; padding:16px; margin-bottom:16px;">
+                  <p style="font-size:22px; font-weight:900; color:#0F2557; margin-bottom:4px">${student.name}</p>
+                  <p style="font-size:13px; color:#5A6B8C; font-family:monospace">${student.studentId}</p>
+                </div>
+                
+                <div style="display:flex; justify-content:center; gap:16px; margin-bottom:16px;">
+                  <div style="background:#ECFDF5; border:1px solid #A7F3D0; border-radius:12px; padding:10px 20px; flex:1;">
+                    <p style="font-size:12px; color:#065F46; font-weight:700; margin-bottom:4px">الحضور السابق</p>
+                    <p style="font-size:24px; font-weight:900; color:#10B981;">${prevAttendances}</p>
+                  </div>
+                  <div style="background:#FEF2F2; border:1px solid #FECACA; border-radius:12px; padding:10px 20px; flex:1;">
+                    <p style="font-size:12px; color:#991B1B; font-weight:700; margin-bottom:4px">الغياب السابق</p>
+                    <p style="font-size:24px; font-weight:900; color:#EF4444;">${prevAbsences}</p>
+                  </div>
+                </div>
+                
+                <p style="font-size:14px; font-weight:700; color:#EF4444;">هذا الطالب تغيب ${prevAbsences} مرات من قبل!</p>
+              </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'تسجيل الحضور',
+            cancelButtonText: 'إلغاء',
+            confirmButtonColor: '#10B981',
+            cancelButtonColor: '#EF4444',
+            reverseButtons: true
+          }).then(async (res) => {
+            if (res.isConfirmed) {
+              await saveAttendance(student, docId, 'on_time');
+            } else {
+              isProcessing = false;
+            }
+          });
+        } else {
+          // لو مفيش غياب (طالب ملتزم)
+          Swal.fire({
+            icon: 'success',
+            title: 'تم قراءة الكارت',
+            html: `
+              <div style="text-align:center; font-family:'Cairo'">
+                <p style="font-size:22px; font-weight:bold; color:#0F2557; margin-bottom:8px">${student.name}</p>
+                <p style="font-size:14px; color:#5A6B8C">الصف: ${student.grade}</p>
+                <p style="font-size:14px; color:#5A6B8C; margin-bottom:12px">المجموعة: ${student.group}</p>
+                <div style="background:#ECFDF5; border-radius:10px; padding:8px; display:inline-block;">
+                  <span style="color:#10B981; font-weight:bold; font-size:14px;">سجل حضور ممتاز ✨ (${prevAttendances} مرات حضور)</span>
+                </div>
+              </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'تأكيد الحضور',
+            cancelButtonText: 'إلغاء',
+            confirmButtonColor: '#10B981',
+            cancelButtonColor: '#5A6B8C',
+            reverseButtons: true
+          }).then(async (res) => {
+            if (res.isConfirmed) {
+              await saveAttendance(student, docId, 'on_time');
+            } else {
+              isProcessing = false;
+            }
+          });
+        }
 
       } catch (err) {
         console.error(err);
@@ -612,6 +662,10 @@
 
     // تشغيل تلقائي
     window.addEventListener('load', startCamera);
+	    // 🆕 جلب السجل لحظياً لحساب الغياب
+    onSnapshot(collection(db, 'sessions'), (snap) => {
+      allSessionsHistory = snap.docs.map(d => d.data());
+    });
   </script>
 </body>
 </html>
