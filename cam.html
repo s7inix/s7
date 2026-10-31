@@ -251,6 +251,13 @@
     let currentFacingMode = 'environment'; // الكاميرا الخلفية ديفولت
     let isProcessing = false;
     let barcodeDetector = null;
+	    function getTodayStr() {
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
     let allSessionsHistory = []; // 🆕 لتخزين السجل وحساب الغياب
     // Web Audio API للأصوات (أسرع وأنقى من الملفات)
     let audioCtx = null;
@@ -436,9 +443,10 @@
       requestAnimationFrame(scanLoop);
     }
 
-    /* ============ منطق القراءة ============ */
         async function handleScanSuccess(studentId) {
-      // 1. قفل الحماية (لمنع التكرار)
+      if (isProcessing) return; // تأمين إضافي
+
+      // 1. قفل الحماية المحلي (لمنع التكرار السريع)
       const lockKey = 'scan_lock_' + studentId;
       const lastScan = localStorage.getItem(lockKey);
       
@@ -462,7 +470,27 @@
       playSound('warning');
 
       try {
-        // 2. البحث في الفايربيز
+        const todayStr = getTodayStr();
+
+        // 2. 🆕 فحص فايربيز: هل الطالب مسجل حضوره النهاردة؟
+        const checkinQuery = query(collection(db, 'checkins'), where('studentId', '==', studentId), where('date', '==', todayStr));
+        const checkinSnap = await getDocs(checkinQuery);
+        
+        if (!checkinSnap.empty) {
+          // مسجل بالفعل النهاردة
+          localStorage.setItem(lockKey, Date.now().toString()); // نقفله محلياً عشان منعملش استعلامات كتير
+          playSound('error');
+          Swal.fire({
+            icon: 'error',
+            title: 'مسجل حضور بالفعل',
+            text: 'هذا الطالب تم تسجيل حضوره اليوم بالفعل.',
+            confirmButtonText: 'حسناً',
+            confirmButtonColor: '#EF4444'
+          }).then(() => { isProcessing = false; });
+          return;
+        }
+
+        // 3. البحث عن بيانات الطالب
         const q = query(collection(db, 'students'), where('studentId', '==', studentId));
         const snap = await getDocs(q);
 
@@ -479,12 +507,12 @@
         const student = snap.docs[0].data();
         const docId = snap.docs[0].id;
 
-        // 3. فحص الوقت
+        // 4. فحص الوقت
         const timeCheck = checkTime(student.timeFrom, student.timeTo);
 
         if (!timeCheck.isValid) {
           playSound('error');
-          localStorage.setItem(lockKey, Date.now().toString()); 
+          // 🆕 شيلنا القفل من هنا، عشان لو اترفض يقدر يقرا تاني
 
           Swal.fire({
             icon: 'warning',
@@ -506,13 +534,13 @@
             if (res.isConfirmed) {
               await saveAttendance(student, docId, 'manual_override');
             } else {
-              isProcessing = false;
+              isProcessing = false; // 🆕 فك القفل عشان يقدر يقرا تاني
             }
           });
           return;
         }
 
-        // 4. حساب الغياب والحضور السابق 🆕
+        // 5. حساب الغياب والحضور السابق
         let prevAbsences = 0;
         let prevAttendances = 0;
         
@@ -521,10 +549,9 @@
           if (session.attendanceIds && session.attendanceIds.includes(studentId)) prevAttendances++;
         });
 
-        // 5. عرض التحذير بالحركة الصايعة
+        // 6. عرض التحذير أو رسالة النجاح
         playSound('warning');
         
-        // لو الطالب عنده غياب، نطلع تحذير، لو مفيش، نطلع رسالة تأكيد عادية
         if (prevAbsences > 0) {
           Swal.fire({
             icon: 'warning',
@@ -535,7 +562,6 @@
                   <p style="font-size:22px; font-weight:900; color:#0F2557; margin-bottom:4px">${student.name}</p>
                   <p style="font-size:13px; color:#5A6B8C; font-family:monospace">${student.studentId}</p>
                 </div>
-                
                 <div style="display:flex; justify-content:center; gap:16px; margin-bottom:16px;">
                   <div style="background:#ECFDF5; border:1px solid #A7F3D0; border-radius:12px; padding:10px 20px; flex:1;">
                     <p style="font-size:12px; color:#065F46; font-weight:700; margin-bottom:4px">الحضور السابق</p>
@@ -546,7 +572,6 @@
                     <p style="font-size:24px; font-weight:900; color:#EF4444;">${prevAbsences}</p>
                   </div>
                 </div>
-                
                 <p style="font-size:14px; font-weight:700; color:#EF4444;">هذا الطالب تغيب ${prevAbsences} مرات من قبل!</p>
               </div>
             `,
@@ -560,11 +585,10 @@
             if (res.isConfirmed) {
               await saveAttendance(student, docId, 'on_time');
             } else {
-              isProcessing = false;
+              isProcessing = false; // 🆕 فك القفل
             }
           });
         } else {
-          // لو مفيش غياب (طالب ملتزم)
           Swal.fire({
             icon: 'success',
             title: 'تم قراءة الكارت',
@@ -588,7 +612,7 @@
             if (res.isConfirmed) {
               await saveAttendance(student, docId, 'on_time');
             } else {
-              isProcessing = false;
+              isProcessing = false; // 🆕 فك القفل
             }
           });
         }
@@ -600,18 +624,11 @@
       }
     }
 
-    /* ============ حفظ الحضور ============ */
-    async function saveAttendance(student, docId, status) {
+       async function saveAttendance(student, docId, status) {
       Swal.fire({ title: 'جاري الحفظ...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
       try {
-        // 🆕 استخدام التاريخ المحلي بدلاً من UTC
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const today = `${year}-${month}-${day}`;
-        
+        const today = getTodayStr();
         const checkinId = `${student.studentId}_${today}`;
 
         await setDoc(doc(db, 'checkins', checkinId), {
@@ -625,6 +642,7 @@
           status: status
         });
 
+        // 🆕 القفل بيتحط هنا بس لما يتسجل الحضور بنجاح
         localStorage.setItem('scan_lock_' + student.studentId, Date.now().toString());
         
         playSound('success');
